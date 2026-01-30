@@ -10,6 +10,7 @@ Documentos principais:
 - docs/assets-prep.md
 - docs/test-plan.md
 - docs/runbook.md
+- docs/dependencies.md
 
 Configs e contratos:
 - proto/avatar.proto
