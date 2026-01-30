@@ -17,6 +17,11 @@
 5) Lipsync
 6) Gateway/UI
 
+## Servico LLM (stub)
+```
+python -m avatar.llm_service --port 50052 --persona-id ana
+```
+
 ## Variaveis de ambiente (sugestao)
 - AVATAR_CONFIG_STACK=/workspace/configs/stack/default.yaml
 - AVATAR_PERSONA_DIR=/workspace/configs/personas

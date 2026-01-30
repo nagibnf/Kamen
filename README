@@ -20,3 +20,8 @@ Quick start (mock services):
 1) pip install -r requirements.txt
 2) ./scripts/gen_proto.sh
 3) python -m avatar.mock_services --port 50051
+
+LLM service (stub with tool-call support):
+1) pip install -r requirements.txt
+2) ./scripts/gen_proto.sh
+3) python -m avatar.llm_service --port 50052 --persona-id ana
