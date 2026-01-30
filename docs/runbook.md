@@ -2,10 +2,12 @@
 
 ## Pre-flight
 1) Validar GPU e camera.
-2) Ativar modo performance quando for benchmark:
+2) Gerar gRPC stubs (se necessario):
+   - ./scripts/gen_proto.sh
+3) Ativar modo performance quando for benchmark:
    - sudo nvpmodel -m 0
    - sudo jetson_clocks
-3) Verificar espaco em /data (modelos e assets).
+4) Verificar espaco em /data (modelos e assets).
 
 ## Ordem de start (sugestao)
 1) ASR

@@ -28,6 +28,7 @@ Checklist:
 2) Fixar configs (configs/stack + configs/personas).
 3) Definir padrao de logs (json lines) e ids (persona_id, session_id).
 4) Definir padrao de metrics (latencia por etapa).
+5) Gerar stubs gRPC (scripts/gen_proto.sh).
 
 Saida:
 - Proto e configs versionados.
