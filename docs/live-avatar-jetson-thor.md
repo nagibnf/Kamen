@@ -20,7 +20,8 @@ Construir um assistente de voz em portugues, totalmente local, que:
 - TTS com qualidade superior ao Piper (avaliar Qwen3-TTS e alternativas)
 - arquitetura que permita trocar modelos para testes
 - clonagem de voz desejavel
-- multiplas personas, cada uma com URL/interface separada
+- multiplas personas, cada uma com URL/interface separada (path)
+- fase inicial: uma persona ativa por vez
 
 ## Resumo de conclusoes (curto)
 - Nao existe um stack open source unico que resolva tudo "out of the box".
@@ -201,7 +202,7 @@ Objetivo: varias personas com URL/interface separada e recursos isolados.
 ### Estrategia recomendada
 - **Persona Registry**: catalogo de personas (id, nome, voz, video base).
 - **Config por persona** (YAML/JSON): define modelos e assets.
-- **Routing por URL**: `https://host/p/<persona_id>` ou subdominio.
+- **Routing por URL**: `https://host/p/<persona_id>` (path).
 - **Sessao por persona**: o contexto do LLM e o cache de voz ficam isolados.
 
 ### Assets por persona
@@ -226,7 +227,9 @@ stack:
 ```
 
 ### Observacoes
-- Para muitas personas simultaneas, compartilhar ASR/LLM como servico
+- Fase 1: rodar **uma persona por vez** para maximizar performance.
+- Fase 2: ativar varias personas simultaneas para medir capacidade.
+- Para varias personas simultaneas, compartilhar ASR/LLM como servico
   central e manter TTS/Lipsync por persona quando necessario.
 - Salvar embeddings de voz para reduzir latencia de clonagem.
 
