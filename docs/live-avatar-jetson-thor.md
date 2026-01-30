@@ -11,7 +11,7 @@ Construir um assistente de voz em portugues, totalmente local, que:
 
 ## Requisitos atuais (conforme pedido)
 - avatar a partir de video gravado com pessoa real (2D)
-- 30-35 fps, com aparencia de video real
+- 25-30 fps, com aparencia de video real
 - foco em menor latencia possivel
 - PT-BR
 - somente open source
@@ -19,6 +19,8 @@ Construir um assistente de voz em portugues, totalmente local, que:
 - VLM: Qwen-VL
 - TTS com qualidade superior ao Piper (avaliar Qwen3-TTS e alternativas)
 - arquitetura que permita trocar modelos para testes
+- clonagem de voz desejavel
+- multiplas personas, cada uma com URL/interface separada
 
 ## Resumo de conclusoes (curto)
 - Nao existe um stack open source unico que resolva tudo "out of the box".
@@ -77,14 +79,22 @@ Opcoes open source:
 - **Mimic3**: leve, qualidade media.
 Recomendacao (para este projeto):
 - Primario: **Qwen3-TTS** (se entregar latencia e PT-BR).
-- Fallback de qualidade: **XTTS-v2** ou **StyleTTS2**.
+- Fallback de qualidade: **XTTS-v2** (tem voice cloning) ou **StyleTTS2**.
 - Piper apenas para debug/benchmark de latencia.
 
 ### 5b) Pesquisa rapida: Qwen3-TTS
 - Repo oficial: **QwenLM/Qwen3-TTS** (open source).
 - Existem nodes ComfyUI para Qwen3-TTS (indicacao de modelos 0.6B/1.7B).
 - Acoes pendentes: validar licenca, requisitos GPU e performance real
-  em Jetson Thor (fp16/int8), e suporte efetivo a PT-BR.
+  em Jetson Thor (fp16/int8), suporte efetivo a PT-BR e voice cloning.
+
+### 5c) Clonagem de voz (PT-BR)
+Opcoes open source com qualidade alta:
+- **Qwen3-TTS**: se o voice cloning estiver estavel.
+- **XTTS-v2**: clonagem com amostra curta, bom equilibrio.
+- **StyleTTS2**: precisa pipeline de adaptacao, mais trabalho.
+Recomendacao:
+- manter um banco de "voice profiles" por persona (wav curto + embedding).
 
 ### 6) Lipsync / Avatar em video (video real)
 Opcoes open source:
@@ -95,7 +105,7 @@ Opcoes open source:
 - **Rhubarb**: lipsync 2D (desenho), leve mas limitado.
 Recomendacao: **Wav2Lip** para 2D real-time.
 
-Notas para 30-35 fps com video real:
+Notas para 25-30 fps com video real:
 - usar video base (idle) com face frontal e pouca variacao de luz
 - pre-processar face crop/align e usar so ROI de boca
 - 256x256 ou 384x384 para equilibrar qualidade x latencia
@@ -185,6 +195,41 @@ lipsync:
   model: wav2lip_gan.pth
 ```
 
+## Multi-persona (URLs diferentes)
+Objetivo: varias personas com URL/interface separada e recursos isolados.
+
+### Estrategia recomendada
+- **Persona Registry**: catalogo de personas (id, nome, voz, video base).
+- **Config por persona** (YAML/JSON): define modelos e assets.
+- **Routing por URL**: `https://host/p/<persona_id>` ou subdominio.
+- **Sessao por persona**: o contexto do LLM e o cache de voz ficam isolados.
+
+### Assets por persona
+- video base (idle) + landmarks/bboxes
+- voice sample curto (10-30s) para clonagem
+- prompt/identidade para LLM
+
+### Exemplo de config por persona (conceitual)
+```
+persona:
+  id: ana
+  name: "Ana"
+  base_video: /data/avatars/ana/idle.mp4
+  voice_sample: /data/voices/ana_ref.wav
+  system_prompt: "Voce e a Ana, amigavel e objetiva."
+stack:
+  asr: { backend: faster_whisper, model: distil-large-v3 }
+  llm: { backend: tensorrt_llm, model: qwen2.5-7b }
+  tts: { backend: qwen3_tts, model: qwen3-tts-0.6b }
+  vlm: { backend: qwen2_vl, model: qwen2-vl-2b }
+  lipsync: { backend: wav2lip, model: wav2lip_gan.pth }
+```
+
+### Observacoes
+- Para muitas personas simultaneas, compartilhar ASR/LLM como servico
+  central e manter TTS/Lipsync por persona quando necessario.
+- Salvar embeddings de voz para reduzir latencia de clonagem.
+
 ## Uso de GPU na Jetson Thor
 - Prefira **TensorRT-LLM** e **TensorRT** para maximo desempenho.
 - Use quantizacao 4-bit/8-bit para LLM e VLM.
@@ -213,3 +258,4 @@ lipsync:
 - Escolher 1 stack MVP e validar no Jetson real.
 - Coletar metricas (RTF, latencia, uso de GPU/CPU).
 - Ajustar modelos e batch size ate atingir tempo real.
+- Criar 1-2 personas piloto (video base + voice sample) e medir fps.
