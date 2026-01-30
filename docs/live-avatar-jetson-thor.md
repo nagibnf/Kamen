@@ -379,6 +379,75 @@ Objetivo: baixa latencia e isolamento de estado.
    - se VLM lento, reduzir fps ou desligar
    - se TTS lento, trocar modelo via config
 
+## Persona Registry (schema + estrutura)
+Objetivo: padronizar assets por persona para troca rapida.
+
+### Estrutura de pastas (sugestao)
+```
+/data/personas/
+  ana/
+    persona.yaml
+    video/
+      base_idle.mp4
+      landmarks.json
+      roi_cache.json
+    voice/
+      ref.wav
+      embedding.bin
+```
+
+### persona.yaml (exemplo)
+```
+id: ana
+name: "Ana"
+language: "pt-BR"
+base_video: /data/personas/ana/video/base_idle.mp4
+landmarks: /data/personas/ana/video/landmarks.json
+roi_cache: /data/personas/ana/video/roi_cache.json
+voice_sample: /data/personas/ana/voice/ref.wav
+voice_embedding: /data/personas/ana/voice/embedding.bin
+system_prompt: "Voce e a Ana, amigavel e objetiva."
+stack:
+  asr: { backend: faster_whisper, model: distil-large-v3 }
+  llm: { backend: tensorrt_llm, model: qwen2.5-7b }
+  tts: { backend: qwen3_tts, model: qwen3-tts-0.6b }
+  vlm: { backend: qwen2_vl, model: qwen2-vl-2b }
+  lipsync: { backend: wav2lip, model: wav2lip_gan.pth }
+```
+
+## Cache e politicas de eviccao
+Objetivo: manter baixa latencia e estabilidade.
+
+### O que cachear
+- **Voice embedding** por persona (persistente no disco + em RAM)
+- **LLM context** por session_id (memoria curta)
+- **ROI cache** por video base (persistente)
+- **Model weights** (mantidos carregados quando possivel)
+
+### Politicas recomendadas
+- **LLM context**: TTL por sessao (ex: 15-30 min) + limite de tokens
+- **Voice embedding**: LRU em RAM com fallback em disco
+- **ROI cache**: sem eviccao (pequeno e estatico)
+- **Model swap**: hot reload com janela de aquecimento
+
+## Roteamento e isolamento de sessao
+Objetivo: separar personas e conversas sem vazamento de contexto.
+
+### Regras
+- cada request carrega `persona_id` e `session_id`
+- `persona_id` define assets e modelos usados
+- `session_id` define memoria curta do LLM e estado da conversa
+
+### Gateway (path routing)
+- rota: `/p/<persona_id>`
+- cria session_id no primeiro acesso
+- injeta headers para servicos internos (gRPC metadata)
+
+### Limites e protecoes
+- limitar 1 persona ativa (fase 1)
+- fila por persona para evitar overload
+- backpressure no ASR/LLM quando TTS ou lipsync atrasar
+
 ## Multi-persona (URLs diferentes)
 Objetivo: varias personas com URL/interface separada e recursos isolados.
 
