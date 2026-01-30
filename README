@@ -19,9 +19,22 @@ Configs e contratos:
 Quick start (mock services):
 1) pip install -r requirements.txt
 2) ./scripts/gen_proto.sh
-3) python -m avatar.mock_services --port 50051
+3) export PYTHONPATH=/workspace/src
+4) python -m avatar.mock_services --port 50051
 
 LLM service (stub with tool-call support):
 1) pip install -r requirements.txt
 2) ./scripts/gen_proto.sh
-3) python -m avatar.llm_service --port 50052 --persona-id ana
+3) export PYTHONPATH=/workspace/src
+4) python -m avatar.llm_service --port 50052 --persona-id ana
+
+End-to-end test (orchestrator):
+1) export PYTHONPATH=/workspace/src
+2) python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav
+
+Service commands (stubs/placeholder backends):
+- ASR: python -m avatar.asr_service --port 50051 --persona-id ana
+- LLM: python -m avatar.llm_service --port 50052 --persona-id ana
+- TTS: python -m avatar.tts_service --port 50053 --persona-id ana
+- Lipsync: python -m avatar.lipsync_service --port 50054 --persona-id ana
+- VLM: python -m avatar.vlm_service --port 50055 --persona-id ana

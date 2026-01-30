@@ -37,3 +37,8 @@
 ## Video Output (opcional separado)
 - GStreamer pipeline com NVENC/NVDEC
 - Mux e entrega via WebRTC/RTSP
+
+## Orchestrator (teste CLI)
+- Conecta os servicos via gRPC
+- Faz fluxo ASR -> LLM -> TTS -> Lipsync
+- Util para validar latencia e formato de dados

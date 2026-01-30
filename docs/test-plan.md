@@ -6,6 +6,7 @@ Validar latencia, FPS e qualidade do pipeline completo.
 ## Tipos de teste
 1) **Unitario**: validacao de API e formatos (pcm/h264).
 2) **Integracao**: ASR -> LLM -> TTS -> Lipsync.
+   - usar `avatar.orchestrator` com WAV/texto
 3) **Performance**: FPS e latencia E2E.
 4) **Stress**: 2+ personas (fase 2).
 

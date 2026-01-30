@@ -193,6 +193,12 @@ Exemplo de config (conceitual):
 asr:
   backend: faster_whisper
   model: distil-large-v3
+services:
+  asr: localhost:50051
+  llm: localhost:50052
+  tts: localhost:50053
+  lipsync: localhost:50054
+  vlm: localhost:50055
 llm:
   backend: tensorrt_llm
   model: qwen2.5-7b

@@ -1,10 +1,18 @@
 stack:
+  services:
+    asr: "localhost:50051"
+    llm: "localhost:50052"
+    tts: "localhost:50053"
+    lipsync: "localhost:50054"
+    vlm: "localhost:50055"
   asr:
     backend: faster_whisper
     model: distil-large-v3
     device: cuda
+    compute_type: int8_float16
     vad: silero
     sample_rate: 16000
+    partial_ms: 800
   llm:
     backend: tensorrt_llm
     model: qwen2.5-7b

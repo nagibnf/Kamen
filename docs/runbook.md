@@ -4,10 +4,12 @@
 1) Validar GPU e camera.
 2) Gerar gRPC stubs (se necessario):
    - ./scripts/gen_proto.sh
-3) Ativar modo performance quando for benchmark:
+3) Exportar PYTHONPATH:
+   - export PYTHONPATH=/workspace/src
+4) Ativar modo performance quando for benchmark:
    - sudo nvpmodel -m 0
    - sudo jetson_clocks
-4) Verificar espaco em /data (modelos e assets).
+5) Verificar espaco em /data (modelos e assets).
 
 ## Ordem de start (sugestao)
 1) ASR
@@ -20,6 +22,19 @@
 ## Servico LLM (stub)
 ```
 python -m avatar.llm_service --port 50052 --persona-id ana
+```
+
+## Servicos ASR/TTS/VLM/Lipsync (stubs/placeholder)
+```
+python -m avatar.asr_service --port 50051 --persona-id ana
+python -m avatar.tts_service --port 50053 --persona-id ana
+python -m avatar.vlm_service --port 50055 --persona-id ana
+python -m avatar.lipsync_service --port 50054 --persona-id ana
+```
+
+## Orchestrator (teste end-to-end)
+```
+python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav
 ```
 
 ## Variaveis de ambiente (sugestao)

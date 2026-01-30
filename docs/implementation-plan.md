@@ -39,26 +39,31 @@ Saida:
 - faster-whisper com VAD (Silero).
 - Streaming por chunks (20-40 ms).
 - Saida parcial + final com timestamps.
+ - Servico base: `src/avatar/asr_service.py`
 
 ### LLM
 - Qwen2.5 7B via TensorRT-LLM.
 - Streaming de tokens.
 - Prompt com identidade da persona + contexto curto.
 - Tool calling (allowlist por persona + retorno ao modelo).
+ - Servico base: `src/avatar/llm_service.py`
 
 ### TTS
 - Qwen3-TTS em modo streaming.
 - Voice cloning com sample curto (10-30s).
 - Fallback XTTS-v2 se latencia ficar alta.
+ - Servico base: `src/avatar/tts_service.py`
 
 ### VLM
 - Qwen2-VL 2B a 1-2 FPS.
 - Resumo curto para injetar no prompt do LLM.
+ - Servico base: `src/avatar/vlm_service.py`
 
 ### Lipsync
 - Wav2Lip com base idle.
 - ROI e resolucao 256x256 ou 384x384.
 - Saida H264 para reduzir banda.
+ - Servico base: `src/avatar/lipsync_service.py`
 
 ### Gateway / UI
 - Rota /p/<persona_id>.
