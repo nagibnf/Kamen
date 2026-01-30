@@ -27,7 +27,7 @@ Construir um assistente de voz em portugues, totalmente local, que:
 - Nao existe um stack open source unico que resolva tudo "out of the box".
 - O caminho mais realista e integrar componentes open source por etapa.
 - Para Jetson, priorize modelos menores + quantizacao + TensorRT / CUDA.
-- Para video real 30-35 fps, Wav2Lip (2D) e o caminho mais pratico,
+- Para video real 25-30 fps, Wav2Lip (2D) e o caminho mais pratico,
   mas exige otimizacao (ROI, TensorRT, fp16, pipeline de video).
 - Para TTS de maior qualidade, Qwen3-TTS e uma aposta promissora,
   com fallback para XTTS-v2 ou StyleTTS2 se latencia for alta.
@@ -127,7 +127,7 @@ Logo, a integracao custom e o caminho mais seguro.
 
 ## Stack recomendada (open source, baixa latencia)
 
-### MVP realista (latencia minima + 30-35 fps)
+### MVP realista (latencia minima + 25-30 fps)
 - VAD: Silero VAD
 - ASR: faster-whisper (distil-large-v3) CUDA
 - LLM: TensorRT-LLM + Qwen2.5 7B (4-bit)
@@ -196,6 +196,60 @@ lipsync:
   model: wav2lip_gan.pth
 ```
 
+## Blueprint de APIs (contratos)
+Objetivo: contratos claros para trocar modelos e manter latencia baixa.
+Recomendacao: gRPC streaming entre servicos e WebRTC/WS para UI.
+
+### Campos comuns (todos os servicos)
+- `persona_id`: id da persona (ex: "ana")
+- `session_id`: id da conversa/sessao
+- `request_id`: id unico por chamada
+- `ts_ms`: timestamp
+
+### ASR Service (streaming)
+- **Entrada**: stream de `AudioChunk`
+  - `pcm_s16le`, `sample_rate=16000`, `channels=1`
+- **Saida**: stream de `AsrPartial`
+  - `text`, `is_final`, `start_ms`, `end_ms`, `confidence`
+Endpoint (conceitual): `rpc StreamAsr(stream AudioChunk) returns (stream AsrPartial)`
+
+### LLM Orchestrator (streaming)
+- **Entrada**: `LlmRequest`
+  - `text`, `context`, `vision_summary`, `persona_profile`
+- **Saida**: stream de `LlmToken`
+  - `token`, `is_final`, `latency_ms`
+Endpoint: `rpc StreamLlm(LlmRequest) returns (stream LlmToken)`
+
+### TTS Service (streaming + voice cloning)
+- **Entrada**: `TtsRequest`
+  - `text`, `voice_profile_id` ou `voice_sample_path`
+  - `speed`, `temperature`, `top_p`
+- **Saida**: stream de `AudioChunk` (pcm)
+Endpoint: `rpc StreamTts(TtsRequest) returns (stream AudioChunk)`
+
+### Lipsync Service
+- **Entrada**: `LipsyncRequest`
+  - `audio_stream` (pcm), `base_video_path`, `roi_cache`
+- **Saida**: stream de `VideoFrame` (raw) ou `H264Packet`
+Endpoint: `rpc StreamLipsync(stream AudioChunk) returns (stream VideoFrame)`
+
+### VLM Service
+- **Entrada**: `ImageFrame` (RGB/BGR) ou camera id
+- **Saida**: `VisionSummary` (texto curto + tags)
+Endpoint: `rpc AnalyzeFrame(ImageFrame) returns (VisionSummary)`
+
+### UI / Gateway
+- **Path por persona**: `/p/<persona_id>`
+- UI abre WebRTC/WS para:
+  - envio de audio do mic
+  - recepcao de audio TTS
+  - recepcao de video lipsync (H264)
+  - exibicao de legenda (ASR/LLM)
+
+### Config/Hot swap
+- `POST /config/reload` por servico
+- `GET /config/current` para debug
+
 ## Multi-persona (URLs diferentes)
 Objetivo: varias personas com URL/interface separada e recursos isolados.
 
@@ -233,6 +287,34 @@ stack:
   central e manter TTS/Lipsync por persona quando necessario.
 - Salvar embeddings de voz para reduzir latencia de clonagem.
 
+## Plano de benchmark (performance e qualidade)
+Objetivo: medir se o sistema cumpre 25-30 fps e baixa latencia.
+
+### Metricas chave
+- **FPS** do video final (media e p95)
+- **Latencia E2E** (speech->video): p50/p95
+- **TTFT** do LLM (time-to-first-token)
+- **RTF ASR** e **RTF TTS**
+- **Uso de GPU/CPU** (tegrastats/jtop)
+- **VRAM** e **bandwidth**
+- **Qualidade**: WER (ASR) e MOS subjetivo (TTS)
+
+### Cenarios
+1. **Baseline**: 1 persona, VLM OFF, 30s de fala gravada.
+2. **VLM ON**: 1-2 FPS, medir impacto em fps e latencia.
+3. **Voice cloning**: comparar Qwen3-TTS vs XTTS-v2.
+4. **Stress**: 2+ personas simultaneas (fase 2).
+
+### Procedimento
+- Rodar cada cenario 3x, coletar medias e p95.
+- Exportar logs para CSV (timestamp, stage, latency_ms).
+- Fixar clocks (jetson_clocks) e modo performance.
+
+### Criterios de sucesso
+- Video >= 25 FPS (p95)
+- Latencia E2E <= 2.0 s (p95) no MVP
+- TTFT LLM <= 600 ms (p95)
+
 ## Uso de GPU na Jetson Thor
 - Prefira **TensorRT-LLM** e **TensorRT** para maximo desempenho.
 - Use quantizacao 4-bit/8-bit para LLM e VLM.
@@ -242,9 +324,9 @@ stack:
 ## Plano de implementacao (passos)
 1. **Audio->ASR**: Mic + VAD + faster-whisper streaming.
 2. **ASR->LLM**: prompt baseline, memoria curta.
-3. **LLM->TTS**: Piper com voz PT-BR, playback local.
+3. **LLM->TTS**: Qwen3-TTS (ou XTTS-v2), playback local.
 4. **TTS->Lipsync**: Wav2Lip com video base (idle).
-5. **Camera->VLM**: Moondream2, 1-2 fps.
+5. **Camera->VLM**: Qwen2-VL 2B, 1-2 fps.
 6. **Integracao completa**: orquestrador + latencia otimizada.
 
 ## Riscos e mitigacoes
@@ -252,7 +334,7 @@ stack:
 - **TTS lento**: ajustar streaming, reduzir modelo, usar XTTS-v2/StyleTTS2.
 - **Lipsync pesado**: reduzir resolucao, usar ROI e batch pequeno.
 - **VLM pesado**: reduzir FPS e usar Qwen2-VL 2B.
-- **Video 30-35 fps**: otimizar pipeline (NVDEC/NVENC, zero-copy).
+- **Video 25-30 fps**: otimizar pipeline (NVDEC/NVENC, zero-copy).
 
 ## Proximos passos recomendados
 - Definir alvo de latencia e qualidade (SLA interno).
