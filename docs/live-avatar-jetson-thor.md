@@ -9,13 +9,25 @@ Construir um assistente de voz em portugues, totalmente local, que:
 - usa camera para "ver" o ambiente via VLM
 - roda em uma Jetson Thor com JetPack 7.1, explorando GPU ao maximo
 
+## Requisitos atuais (conforme pedido)
+- avatar a partir de video gravado com pessoa real (2D)
+- 30-35 fps, com aparencia de video real
+- foco em menor latencia possivel
+- PT-BR
+- somente open source
+- LLM: Qwen
+- VLM: Qwen-VL
+- TTS com qualidade superior ao Piper (avaliar Qwen3-TTS e alternativas)
+- arquitetura que permita trocar modelos para testes
+
 ## Resumo de conclusoes (curto)
 - Nao existe um stack open source unico que resolva tudo "out of the box".
 - O caminho mais realista e integrar componentes open source por etapa.
-- Para Jetson, priorize modelos pequenos + quantizacao + TensorRT / CUDA.
-- O lipsync em tempo real mais pratico hoje e Wav2Lip (2D) ou Audio2Face
-  (nao open source, mas local) caso aceite 3D.
-- Para PT-BR, Whisper (ASR) e Piper ou XTTS (TTS) funcionam bem.
+- Para Jetson, priorize modelos menores + quantizacao + TensorRT / CUDA.
+- Para video real 30-35 fps, Wav2Lip (2D) e o caminho mais pratico,
+  mas exige otimizacao (ROI, TensorRT, fp16, pipeline de video).
+- Para TTS de maior qualidade, Qwen3-TTS e uma aposta promissora,
+  com fallback para XTTS-v2 ou StyleTTS2 se latencia for alta.
 
 ## Pesquisa de componentes open source por etapa
 
@@ -40,40 +52,60 @@ Opcoes open source para rodar local:
 - **TensorRT-LLM** (NVIDIA): melhor desempenho em Jetson.
 - **vLLM**: alto throughput, mas pode ser pesado no Jetson.
 Modelos sugeridos:
-- **Llama 3.1 8B** (bom geral, precisa quantizacao 4-bit/8-bit).
-- **Qwen2.5 7B** (forte em raciocinio, bom em PT).
-- **Mistral 7B** (bom custo/qualidade).
-Recomendacao: **TensorRT-LLM + Llama 3.1 8B ou Qwen2.5 7B**.
+- **Qwen2.5 7B** (bom em PT, bom custo/qualidade).
+- **Qwen2.5 14B** (melhor qualidade, mais pesado).
+- **Llama 3.1 8B** (fallback geral).
+Recomendacao: **TensorRT-LLM + Qwen2.5 7B (4-bit)** para menor latencia.
 
 ### 4) VLM (vision + linguagem)
 Para "ver" o ambiente via camera e gerar descricoes ou respostas.
 Opcoes open source:
+- **Qwen2-VL** (2B/7B): bom, mas pesado.
 - **LLaVA 1.6**: popular, mas pesado.
 - **Phi-3.5-Vision**: pequeno e bom, mas depende de suporte.
-- **Qwen2-VL**: bom, mas pesado.
 - **Moondream2**: leve, bom para consultas simples.
-Recomendacao: **Moondream2** (MVP leve) ou **Phi-3.5-Vision**
-se a GPU suportar. Rodar a 1-2 FPS para reduzir carga.
+Recomendacao: **Qwen2-VL 2B** se couber na GPU com 1-2 FPS.
+Se ficar pesado, usar Moondream2 como fallback leve.
 
 ### 5) TTS (text to speech)
 Opcoes open source:
+- **Qwen3-TTS** (QwenLM): alta qualidade, foco em streaming e voice
+  design/cloning (validar latencia e PT-BR na Jetson).
+- **Coqui TTS / XTTS-v2**: qualidade alta, multilanguage, pesado.
+- **StyleTTS2**: qualidade alta, pode exigir adaptacao de voz.
 - **Piper** (Rhasspy): muito rapido, CPU-friendly, vozes PT-BR.
-- **Coqui TTS / XTTS-v2**: qualidade alta, mas pesado.
 - **Mimic3**: leve, qualidade media.
-Recomendacao:
-- MVP de baixa latencia: **Piper (pt_BR)**.
-- Se quiser mais naturalidade e tiver GPU sobrando: **XTTS-v2**.
+Recomendacao (para este projeto):
+- Primario: **Qwen3-TTS** (se entregar latencia e PT-BR).
+- Fallback de qualidade: **XTTS-v2** ou **StyleTTS2**.
+- Piper apenas para debug/benchmark de latencia.
 
-### 6) Lipsync / Avatar em video
+### 5b) Pesquisa rapida: Qwen3-TTS
+- Repo oficial: **QwenLM/Qwen3-TTS** (open source).
+- Existem nodes ComfyUI para Qwen3-TTS (indicacao de modelos 0.6B/1.7B).
+- Acoes pendentes: validar licenca, requisitos GPU e performance real
+  em Jetson Thor (fp16/int8), e suporte efetivo a PT-BR.
+
+### 6) Lipsync / Avatar em video (video real)
 Opcoes open source:
 - **Wav2Lip**: padrao de fato, bom e relativamente simples.
-  - Com GPU, pode chegar perto de tempo real em 256x256 / 25fps.
+  - Com GPU, pode chegar perto de tempo real em 256x256.
 - **SadTalker**: qualidade alta, mas nao e tempo real.
 - **Avatarify + FOMM**: live, mas qualidade menor para boca.
 - **Rhubarb**: lipsync 2D (desenho), leve mas limitado.
-Opcao nao-open-source (mas local e robusta):
-- **NVIDIA Audio2Face**: excelente para 3D e tempo real.
 Recomendacao: **Wav2Lip** para 2D real-time.
+
+Notas para 30-35 fps com video real:
+- usar video base (idle) com face frontal e pouca variacao de luz
+- pre-processar face crop/align e usar so ROI de boca
+- 256x256 ou 384x384 para equilibrar qualidade x latencia
+- TensorRT / TorchScript + fp16 para acelerar
+- pipeline de video com NVDEC/NVENC (GStreamer) e zero-copy
+
+### 6b) Preparacao do video base (avatar real)
+- gravar 5-10 minutos com rosto frontal e iluminacao constante
+- gerar "idle loop" (trecho curto em loop) para quando nao fala
+- salvar landmarks e bounding boxes para acelerar inferencia
 
 ## Stacks integradas existentes
 Nao ha um "stack completo" open source com ASR+LLM+TTS+Lipsync+VLM.
@@ -82,22 +114,22 @@ O mais proximo e juntar:
 - **Wav2Lip** para video
 Logo, a integracao custom e o caminho mais seguro.
 
-## Stack recomendada (MVP + evolucao)
+## Stack recomendada (open source, baixa latencia)
 
-### MVP (foco em latencia)
+### MVP realista (latencia minima + 30-35 fps)
 - VAD: Silero VAD
 - ASR: faster-whisper (distil-large-v3) CUDA
-- LLM: TensorRT-LLM + Llama 3.1 8B (4-bit)
-- TTS: Piper (pt_BR)
-- Lipsync: Wav2Lip (256x256)
-- VLM: Moondream2 (1-2 FPS)
+- LLM: TensorRT-LLM + Qwen2.5 7B (4-bit)
+- TTS: Qwen3-TTS (streaming) ou XTTS-v2 (fallback)
+- Lipsync: Wav2Lip (256x256, ROI)
+- VLM: Qwen2-VL 2B (1-2 FPS)
 
-### Evolucao (qualidade maior)
+### Evolucao (mais qualidade)
 - ASR: whisper large-v3
-- LLM: Qwen2.5 14B (se couber), ou Llama 3.1 70B remoto/local maior
-- TTS: XTTS-v2
-- VLM: Phi-3.5-Vision ou Qwen2-VL
-- Lipsync: Wav2Lip + refinamento (GFPGAN) se custo permitir
+- LLM: Qwen2.5 14B (se couber)
+- TTS: Qwen3-TTS (modelo maior) ou StyleTTS2 com voz ajustada
+- VLM: Qwen2-VL 7B (se couber)
+- Lipsync: Wav2Lip com resolucao maior se mantiver fps alvo
 
 ## Pipeline proposto (dados e processos)
 
@@ -105,7 +137,7 @@ Logo, a integracao custom e o caminho mais seguro.
 Mic -> VAD -> ASR (stream) -> texto
 texto + contexto + memoria + visao -> LLM (stream)
 tokens -> TTS (stream) -> audio
-audio -> Lipsync -> video frames
+audio + video base (idle) -> Lipsync -> video frames
 Camera -> VLM (1-2 fps) -> "resumo do que ve"
 ```
 
@@ -127,6 +159,32 @@ Use processos separados com filas (ZeroMQ / Redis / gRPC):
 6. **Video Output**: gstreamer + NVENC para RTSP/WebRTC.
 7. **Vision Service**: captura camera, roda VLM, envia resumo.
 
+## Arquitetura para troca rapida de modelos
+Objetivo: permitir testes rapidos sem reescrever o pipeline.
+- padronizar contrato de entrada/saida por etapa (ASR/LLM/TTS/VLM)
+- cada servico expor API simples: `/health`, `/config`, `/stream`
+- selecionar modelos via arquivo de configuracao (YAML/JSON)
+- manter "adapter" por backend (TensorRT, PyTorch, ONNX)
+
+Exemplo de config (conceitual):
+```
+asr:
+  backend: faster_whisper
+  model: distil-large-v3
+llm:
+  backend: tensorrt_llm
+  model: qwen2.5-7b
+tts:
+  backend: qwen3_tts
+  model: qwen3-tts-0.6b
+vlm:
+  backend: qwen2_vl
+  model: qwen2-vl-2b
+lipsync:
+  backend: wav2lip
+  model: wav2lip_gan.pth
+```
+
 ## Uso de GPU na Jetson Thor
 - Prefira **TensorRT-LLM** e **TensorRT** para maximo desempenho.
 - Use quantizacao 4-bit/8-bit para LLM e VLM.
@@ -143,12 +201,15 @@ Use processos separados com filas (ZeroMQ / Redis / gRPC):
 
 ## Riscos e mitigacoes
 - **Latencia alta**: reduzir tamanho de modelos, usar quantizacao.
-- **Qualidade baixa de voz**: migrar Piper -> XTTS-v2.
-- **Lipsync pesado**: reduzir resolucao, usar batch pequeno.
-- **VLM pesado**: reduzir FPS e usar modelo menor.
+- **TTS lento**: ajustar streaming, reduzir modelo, usar XTTS-v2/StyleTTS2.
+- **Lipsync pesado**: reduzir resolucao, usar ROI e batch pequeno.
+- **VLM pesado**: reduzir FPS e usar Qwen2-VL 2B.
+- **Video 30-35 fps**: otimizar pipeline (NVDEC/NVENC, zero-copy).
 
 ## Proximos passos recomendados
 - Definir alvo de latencia e qualidade (SLA interno).
+- Validar Qwen3-TTS (licenca, PT-BR, latencia, streaming).
+- Validar Qwen2-VL (2B) com 1-2 FPS.
 - Escolher 1 stack MVP e validar no Jetson real.
 - Coletar metricas (RTF, latencia, uso de GPU/CPU).
 - Ajustar modelos e batch size ate atingir tempo real.
