@@ -48,18 +48,22 @@ class LlmService(avatar_pb2_grpc.LlmServiceServicer):
     async def StreamLlm(self, request, context):
         tokens = request.text.split() or ["ok"]
         for token in tokens:
-            yield avatar_pb2.LlmToken(
-                meta=request.meta,
-                token=token,
-                is_final=False,
-                latency_ms=0,
+            yield avatar_pb2.LlmEvent(
+                token=avatar_pb2.LlmToken(
+                    meta=request.meta,
+                    token=token,
+                    is_final=False,
+                    latency_ms=0,
+                )
             )
             await asyncio.sleep(0.01)
-        yield avatar_pb2.LlmToken(
-            meta=request.meta,
-            token="",
-            is_final=True,
-            latency_ms=0,
+        yield avatar_pb2.LlmEvent(
+            token=avatar_pb2.LlmToken(
+                meta=request.meta,
+                token="",
+                is_final=True,
+                latency_ms=0,
+            )
         )
 
 

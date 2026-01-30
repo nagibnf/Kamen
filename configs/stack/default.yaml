@@ -24,6 +24,11 @@ stack:
     model: wav2lip_gan.pth
     fps: 30
     resolution: 256
+  tools:
+    enabled: true
+    allowlist:
+      - get_time
+      - list_personas
   video:
     output_format: h264
     fps: 30

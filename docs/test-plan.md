@@ -22,6 +22,7 @@ Validar latencia, FPS e qualidade do pipeline completo.
 2) VLM on (1-2 FPS)
 3) Voice cloning (Qwen3-TTS vs XTTS-v2)
 4) Multi-persona (fase 2)
+5) Tool calling (latencia e estabilidade)
 
 ## Criterios de sucesso
 - Video >= 25 FPS (p95)

@@ -44,6 +44,7 @@ Saida:
 - Qwen2.5 7B via TensorRT-LLM.
 - Streaming de tokens.
 - Prompt com identidade da persona + contexto curto.
+- Tool calling (allowlist por persona + retorno ao modelo).
 
 ### TTS
 - Qwen3-TTS em modo streaming.

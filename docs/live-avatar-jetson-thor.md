@@ -60,6 +60,17 @@ Modelos sugeridos:
 - **Llama 3.1 8B** (fallback geral).
 Recomendacao: **TensorRT-LLM + Qwen2.5 7B (4-bit)** para menor latencia.
 
+### 3b) Function tools (LLM)
+Sim, faz sentido usar tools para acionar funcoes durante a conversa:
+- controle de camera, acao de sistema, consultas locais, etc.
+- manter **allowlist** por persona para seguranca.
+- executar tools no **LLM Orchestrator** (nao no modelo).
+
+Fluxo sugerido:
+1) LLM gera um "tool call" (nome + args).
+2) Orchestrator valida allowlist e executa tool.
+3) Resultado volta para o LLM continuar a resposta.
+
 ### 4) VLM (vision + linguagem)
 Para "ver" o ambiente via camera e gerar descricoes ou respostas.
 Opcoes open source:
@@ -194,6 +205,9 @@ vlm:
 lipsync:
   backend: wav2lip
   model: wav2lip_gan.pth
+tools:
+  enabled: true
+  allowlist: ["get_time", "list_personas"]
 ```
 
 ## Blueprint de APIs (contratos)
@@ -216,9 +230,13 @@ Endpoint (conceitual): `rpc StreamAsr(stream AudioChunk) returns (stream AsrPart
 ### LLM Orchestrator (streaming)
 - **Entrada**: `LlmRequest`
   - `text`, `context`, `vision_summary`, `persona_profile`
-- **Saida**: stream de `LlmToken`
-  - `token`, `is_final`, `latency_ms`
-Endpoint: `rpc StreamLlm(LlmRequest) returns (stream LlmToken)`
+- **Saida**: stream de `LlmEvent`
+  - `token`, `tool_call`, `tool_result`
+Endpoint: `rpc StreamLlm(LlmRequest) returns (stream LlmEvent)`
+
+Notas:
+- O Orchestrator e responsavel por detectar tool calls e executar.
+- Manter allowlist por persona e limites de tempo por tool.
 
 ### TTS Service (streaming + voice cloning)
 - **Entrada**: `TtsRequest`
@@ -295,6 +313,28 @@ message LlmToken {
   int64 latency_ms = 4;
 }
 
+message ToolCall {
+  Meta meta = 1;
+  string name = 2;
+  string args_json = 3;
+}
+
+message ToolResult {
+  Meta meta = 1;
+  string name = 2;
+  string result_json = 3;
+  bool ok = 4;
+  string error = 5;
+}
+
+message LlmEvent {
+  oneof event {
+    LlmToken token = 1;
+    ToolCall tool_call = 2;
+    ToolResult tool_result = 3;
+  }
+}
+
 message TtsRequest {
   Meta meta = 1;
   string text = 2;
@@ -323,7 +363,7 @@ service AsrService {
   rpc StreamAsr(stream AudioChunk) returns (stream AsrPartial);
 }
 service LlmService {
-  rpc StreamLlm(LlmRequest) returns (stream LlmToken);
+  rpc StreamLlm(LlmRequest) returns (stream LlmEvent);
 }
 service TtsService {
   rpc StreamTts(TtsRequest) returns (stream AudioChunk);
@@ -413,6 +453,8 @@ stack:
   tts: { backend: qwen3_tts, model: qwen3-tts-0.6b }
   vlm: { backend: qwen2_vl, model: qwen2-vl-2b }
   lipsync: { backend: wav2lip, model: wav2lip_gan.pth }
+  tools:
+    allowlist: ["get_time", "list_personas"]
 ```
 
 ## Cache e politicas de eviccao

@@ -16,6 +16,8 @@
 - Qwen2.5 via TensorRT-LLM
 - Streaming de tokens
 - Gerencia memoria curta por session_id
+- Detecta tool calls e executa via Tool Registry
+- Aplica allowlist por persona e timeout por tool
 
 ## TTS Service
 - Qwen3-TTS streaming + voice cloning

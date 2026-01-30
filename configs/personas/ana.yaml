@@ -12,3 +12,7 @@ persona:
 stack_override:
   tts:
     voice_profile_id: ana
+  tools:
+    allowlist:
+      - get_time
+      - list_personas

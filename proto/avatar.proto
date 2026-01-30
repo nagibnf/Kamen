@@ -40,6 +40,28 @@ message LlmToken {
   int64 latency_ms = 4;
 }
 
+message ToolCall {
+  Meta meta = 1;
+  string name = 2;
+  string args_json = 3;
+}
+
+message ToolResult {
+  Meta meta = 1;
+  string name = 2;
+  string result_json = 3;
+  bool ok = 4;
+  string error = 5;
+}
+
+message LlmEvent {
+  oneof event {
+    LlmToken token = 1;
+    ToolCall tool_call = 2;
+    ToolResult tool_result = 3;
+  }
+}
+
 message TtsRequest {
   Meta meta = 1;
   string text = 2;
@@ -69,7 +91,7 @@ service AsrService {
 }
 
 service LlmService {
-  rpc StreamLlm(LlmRequest) returns (stream LlmToken);
+  rpc StreamLlm(LlmRequest) returns (stream LlmEvent);
 }
 
 service TtsService {
