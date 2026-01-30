@@ -21,20 +21,20 @@
 
 ## Servico LLM (stub)
 ```
-python -m avatar.llm_service --port 50052 --persona-id ana
+python -m avatar.llm_service --port 50052 --persona-id ana --stack /workspace/configs/stack/mock.yaml
 ```
 
 ## Servicos ASR/TTS/VLM/Lipsync (stubs/placeholder)
 ```
-python -m avatar.asr_service --port 50051 --persona-id ana
-python -m avatar.tts_service --port 50053 --persona-id ana
-python -m avatar.vlm_service --port 50055 --persona-id ana
-python -m avatar.lipsync_service --port 50054 --persona-id ana
+python -m avatar.asr_service --port 50051 --persona-id ana --stack /workspace/configs/stack/mock.yaml
+python -m avatar.tts_service --port 50053 --persona-id ana --stack /workspace/configs/stack/mock.yaml
+python -m avatar.vlm_service --port 50055 --persona-id ana --stack /workspace/configs/stack/mock.yaml
+python -m avatar.lipsync_service --port 50054 --persona-id ana --stack /workspace/configs/stack/mock.yaml
 ```
 
 ## Orchestrator (teste end-to-end)
 ```
-python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav
+python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav --stack /workspace/configs/stack/mock.yaml
 ```
 
 ## Variaveis de ambiente (sugestao)

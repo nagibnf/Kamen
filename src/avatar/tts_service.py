@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import time
 from typing import Iterable, Tuple
 
 import grpc
@@ -11,10 +10,6 @@ import grpc
 import avatar_pb2
 import avatar_pb2_grpc
 from avatar.config import build_effective_config, load_persona_config, load_stack_config
-
-
-def _now_ms() -> int:
-    return int(time.time() * 1000)
 
 
 class TtsBackend:

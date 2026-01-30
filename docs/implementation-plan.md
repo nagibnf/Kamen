@@ -39,7 +39,8 @@ Saida:
 - faster-whisper com VAD (Silero).
 - Streaming por chunks (20-40 ms).
 - Saida parcial + final com timestamps.
- - Servico base: `src/avatar/asr_service.py`
+- Servico base: `src/avatar/asr_service.py`
+- Para testes rapidos, usar `configs/stack/mock.yaml`
 
 ### LLM
 - Qwen2.5 7B via TensorRT-LLM.

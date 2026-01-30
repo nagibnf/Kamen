@@ -1,0 +1,33 @@
+stack:
+  services:
+    asr: "localhost:50051"
+    llm: "localhost:50052"
+    tts: "localhost:50053"
+    lipsync: "localhost:50054"
+    vlm: "localhost:50055"
+  asr:
+    backend: mock
+    partial_ms: 800
+    sample_rate: 16000
+  llm:
+    backend: mock
+    max_tokens: 128
+  tts:
+    backend: mock
+    sample_rate: 24000
+  vlm:
+    backend: mock
+    fps: 1
+  lipsync:
+    backend: mock
+    fps: 30
+    resolution: 256
+  tools:
+    enabled: true
+    allowlist:
+      - get_time
+      - list_personas
+  video:
+    output_format: h264
+    fps: 30
+    use_gstreamer: false

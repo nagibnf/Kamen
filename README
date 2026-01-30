@@ -14,6 +14,7 @@ Documentos principais:
 Configs e contratos:
 - proto/avatar.proto
 - configs/stack/default.yaml
+- configs/stack/mock.yaml
 - configs/personas/ana.yaml
 
 Quick start (mock services):
@@ -26,11 +27,11 @@ LLM service (stub with tool-call support):
 1) pip install -r requirements.txt
 2) ./scripts/gen_proto.sh
 3) export PYTHONPATH=/workspace/src
-4) python -m avatar.llm_service --port 50052 --persona-id ana
+4) python -m avatar.llm_service --port 50052 --persona-id ana --stack /workspace/configs/stack/mock.yaml
 
 End-to-end test (orchestrator):
 1) export PYTHONPATH=/workspace/src
-2) python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav
+2) python -m avatar.orchestrator --text "ola mundo" --out-wav /tmp/out.wav --stack /workspace/configs/stack/mock.yaml
 
 Service commands (stubs/placeholder backends):
 - ASR: python -m avatar.asr_service --port 50051 --persona-id ana
