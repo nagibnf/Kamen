@@ -55,14 +55,40 @@ class TransformersBackend(LlmBackend):
             raise RuntimeError(
                 "transformers not available. Install with: pip install transformers"
             ) from exc
+        try:
+            import torch  # type: ignore
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError("torch not available. Install with: pip install torch") from exc
+
         self._tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        torch_dtype = torch.float16 if device == "cuda" else torch.float32
+        device_map = "auto" if device == "cuda" else None
         self._model = AutoModelForCausalLM.from_pretrained(
-            model_name, device_map=device, trust_remote_code=True
+            model_name,
+            device_map=device_map,
+            torch_dtype=torch_dtype,
+            trust_remote_code=True,
         )
+        if device_map is None:
+            self._model.to(device)
         self._max_tokens = max_tokens
 
     def generate(self, text: str, context: str, vision_summary: str, persona_profile: str) -> str:
-        prompt = f"{persona_profile}\n{context}\n{vision_summary}\nUser: {text}\nAssistant:"
+        system = persona_profile.strip()
+        parts = [p.strip() for p in [context, vision_summary, text] if p and p.strip()]
+        user = "\n".join(parts)
+
+        if hasattr(self._tokenizer, "apply_chat_template"):
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": user})
+            prompt = self._tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+        else:
+            prompt = f"{system}\nUser: {user}\nAssistant:"
+
         inputs = self._tokenizer(prompt, return_tensors="pt").to(self._model.device)
         outputs = self._model.generate(
             **inputs, max_new_tokens=self._max_tokens, do_sample=True, temperature=0.7

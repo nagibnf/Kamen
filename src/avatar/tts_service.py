@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
+import subprocess
+import tempfile
 from typing import Iterable, Tuple
 
 import grpc
@@ -31,21 +34,30 @@ class MockTtsBackend(TtsBackend):
 
 
 class Qwen3TtsBackend(TtsBackend):
-    def __init__(self, model_name: str, device: str = "cuda") -> None:
-        # Placeholder for real integration. The real package name may differ.
-        try:
-            import qwen3_tts  # type: ignore  # noqa: F401
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                "Qwen3-TTS backend not available. Install the Qwen3-TTS package."
-            ) from exc
-        self._model_name = model_name
-        self._device = device
+    """Invoke Qwen3-TTS via external command template.
+
+    Expected template variables:
+    - {text}, {out_wav}, {voice_sample}
+    """
+
+    def __init__(self, cmd_template: str) -> None:
+        self._cmd_template = cmd_template
 
     def synthesize(
         self, text: str, voice_profile_id: str | None, voice_sample_path: str | None
     ) -> Tuple[bytes, int]:
-        raise NotImplementedError("Qwen3-TTS integration pending")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_wav = os.path.join(tmpdir, "out.wav")
+            cmd = self._cmd_template.format(
+                text=text,
+                out_wav=out_wav,
+                voice_sample=voice_sample_path or "",
+            )
+            subprocess.run(cmd, shell=True, check=True)
+            with open(out_wav, "rb") as fh:
+                data = fh.read()
+        # Assume 24k by default (can be adjusted by config).
+        return data, 24000
 
 
 class XttsBackend(TtsBackend):
@@ -71,15 +83,22 @@ class XttsBackend(TtsBackend):
 
 
 class TtsService(avatar_pb2_grpc.TtsServiceServicer):
-    def __init__(self, backend: TtsBackend, chunk_ms: int = 100) -> None:
+    def __init__(
+        self,
+        backend: TtsBackend,
+        chunk_ms: int = 100,
+        default_voice_sample_path: str | None = None,
+    ) -> None:
         self._backend = backend
         self._chunk_ms = chunk_ms
+        self._default_voice_sample_path = default_voice_sample_path
 
     async def StreamTts(self, request, context):
+        voice_sample_path = request.voice_sample_path or self._default_voice_sample_path
         pcm, sample_rate = self._backend.synthesize(
             request.text,
             request.voice_profile_id or None,
-            request.voice_sample_path or None,
+            voice_sample_path,
         )
         if not pcm:
             return
@@ -98,10 +117,10 @@ class TtsService(avatar_pb2_grpc.TtsServiceServicer):
 def _build_backend(tts_cfg: dict) -> TtsBackend:
     backend = tts_cfg.get("backend", "mock")
     if backend == "qwen3_tts":
-        return Qwen3TtsBackend(
-            model_name=tts_cfg.get("model", "qwen3-tts-0.6b"),
-            device=tts_cfg.get("device", "cuda"),
-        )
+        cmd_template = tts_cfg.get("cmd_template")
+        if not cmd_template:
+            raise RuntimeError("qwen3_tts requires cmd_template in config")
+        return Qwen3TtsBackend(cmd_template=cmd_template)
     if backend == "xtts":
         return XttsBackend(model_name=tts_cfg.get("model", "tts_models/multilingual/xtts_v2"))
     return MockTtsBackend()
@@ -113,9 +132,13 @@ def _load_effective(stack_path: str, personas_dir: str, persona_id: str) -> dict
     return build_effective_config(stack_cfg, persona_cfg)
 
 
-async def serve(bind: str, port: int, backend: TtsBackend) -> None:
+async def serve(
+    bind: str, port: int, backend: TtsBackend, default_voice_sample_path: str | None
+) -> None:
     server = grpc.aio.server()
-    avatar_pb2_grpc.add_TtsServiceServicer_to_server(TtsService(backend), server)
+    avatar_pb2_grpc.add_TtsServiceServicer_to_server(
+        TtsService(backend, default_voice_sample_path=default_voice_sample_path), server
+    )
     server.add_insecure_port(f"{bind}:{port}")
     await server.start()
     await server.wait_for_termination()
@@ -132,8 +155,16 @@ def main() -> None:
 
     effective = _load_effective(args.stack, args.personas_dir, args.persona_id)
     tts_cfg = effective.get("stack", {}).get("tts", {})
+    persona = effective.get("persona", {})
     backend = _build_backend(tts_cfg)
-    asyncio.run(serve(args.bind, args.port, backend))
+    asyncio.run(
+        serve(
+            args.bind,
+            args.port,
+            backend,
+            default_voice_sample_path=persona.get("voice_sample"),
+        )
+    )
 
 
 if __name__ == "__main__":

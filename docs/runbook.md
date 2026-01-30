@@ -10,6 +10,8 @@
    - sudo nvpmodel -m 0
    - sudo jetson_clocks
 5) Verificar espaco em /data (modelos e assets).
+6) Instalar deps ML (quando for rodar modelos reais):
+   - bash /workspace/scripts/install_ml_deps.sh
 
 ## Ordem de start (sugestao)
 1) ASR

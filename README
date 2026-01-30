@@ -18,6 +18,10 @@ Configs e contratos:
 - configs/stack/mock.yaml
 - configs/personas/ana.yaml
 
+Dependencias ML (opcional):
+- requirements-ml.txt
+- scripts/install_ml_deps.sh
+
 Quick start (mock services):
 1) pip install -r requirements.txt
 2) ./scripts/gen_proto.sh

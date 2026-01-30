@@ -14,17 +14,21 @@ Este repo inclui apenas o scaffold. Para rodar os modelos reais, instale:
 ## LLM
 - TensorRT-LLM (recomendado) ou transformers + torch
 - Qwen2.5 checkpoints (7B/14B)
+ - sentencepiece (alguns tokenizers)
 
 ## TTS
 - Qwen3-TTS (preferencial) ou Coqui TTS (XTTS-v2)
 - torch + torchaudio
+ - soundfile
 
 ## VLM
 - Qwen2-VL (2B/7B) via runtime compativel (transformers/TensorRT)
+ - pillow
 
 ## Lipsync
 - Wav2Lip (PyTorch)
 - opencv-python
+ - ffmpeg (cli)
 
 ## Observacoes
 - Em Jetson, prefira builds NVIDIA para torch/TensorRT.

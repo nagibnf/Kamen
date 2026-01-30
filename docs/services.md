@@ -32,7 +32,8 @@
 ## Lipsync Service
 - Wav2Lip com base idle
 - ROI cache + resolucao 256/384
-- Saida H264 para UI
+- Saida MP4/H264 para UI
+- Requer repo Wav2Lip em disco (ex: /opt/wav2lip)
 
 ## Video Output (opcional separado)
 - GStreamer pipeline com NVENC/NVDEC

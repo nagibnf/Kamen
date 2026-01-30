@@ -21,6 +21,7 @@ stack:
   tts:
     backend: qwen3_tts
     model: qwen3-tts-0.6b
+    cmd_template: "qwen3-tts --text \"{text}\" --out \"{out_wav}\" --voice \"{voice_sample}\""
     voice_cloning: true
     sample_rate: 24000
   vlm:
@@ -30,6 +31,7 @@ stack:
   lipsync:
     backend: wav2lip
     model: wav2lip_gan.pth
+    repo_path: /opt/wav2lip
     fps: 30
     resolution: 256
   tools:

@@ -123,6 +123,7 @@ Notas para 25-30 fps com video real:
 - 256x256 ou 384x384 para equilibrar qualidade x latencia
 - TensorRT / TorchScript + fp16 para acelerar
 - pipeline de video com NVDEC/NVENC (GStreamer) e zero-copy
+- integracao Wav2Lip pode gerar MP4 (H264) como saida
 
 ### 6b) Preparacao do video base (avatar real)
 - gravar 5-10 minutos com rosto frontal e iluminacao constante
@@ -190,27 +191,29 @@ Objetivo: permitir testes rapidos sem reescrever o pipeline.
 
 Exemplo de config (conceitual):
 ```
-asr:
-  backend: faster_whisper
-  model: distil-large-v3
 services:
   asr: localhost:50051
   llm: localhost:50052
   tts: localhost:50053
   lipsync: localhost:50054
   vlm: localhost:50055
+asr:
+  backend: faster_whisper
+  model: distil-large-v3
 llm:
   backend: tensorrt_llm
   model: qwen2.5-7b
 tts:
   backend: qwen3_tts
   model: qwen3-tts-0.6b
+  cmd_template: "qwen3-tts --text \"{text}\" --out \"{out_wav}\" --voice \"{voice_sample}\""
 vlm:
   backend: qwen2_vl
   model: qwen2-vl-2b
 lipsync:
   backend: wav2lip
   model: wav2lip_gan.pth
+  repo_path: /opt/wav2lip
 tools:
   enabled: true
   allowlist: ["get_time", "list_personas"]

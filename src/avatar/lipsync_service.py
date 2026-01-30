@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import time
+import os
+import subprocess
+import tempfile
+import wave
 
 import grpc
 
@@ -36,15 +39,56 @@ class MockLipsyncBackend(LipsyncBackend):
 
 
 class Wav2LipBackend(LipsyncBackend):
-    def __init__(self, model_path: str) -> None:
-        try:
-            import torch  # type: ignore  # noqa: F401
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError("torch not available. Install with: pip install torch") from exc
-        self._model_path = model_path
+    def __init__(self, repo_path: str, checkpoint: str, base_video: str, fps: int = 30) -> None:
+        self._repo_path = repo_path
+        self._checkpoint = checkpoint
+        self._base_video = base_video
+        self._fps = fps
 
     async def run(self, audio_stream, meta: avatar_pb2.Meta):
-        raise NotImplementedError("Wav2Lip integration pending")
+        pcm = bytearray()
+        sample_rate = 24000
+        async for chunk in audio_stream:
+            pcm.extend(chunk.pcm_s16le)
+            sample_rate = chunk.sample_rate or sample_rate
+
+        if not pcm:
+            return
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            wav_path = os.path.join(tmpdir, "audio.wav")
+            with wave.open(wav_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(bytes(pcm))
+
+            out_path = os.path.join(tmpdir, "out.mp4")
+            cmd = [
+                "python",
+                os.path.join(self._repo_path, "inference.py"),
+                "--checkpoint_path",
+                self._checkpoint,
+                "--face",
+                self._base_video,
+                "--audio",
+                wav_path,
+                "--outfile",
+                out_path,
+                "--fps",
+                str(self._fps),
+            ]
+            subprocess.run(cmd, check=True)
+            with open(out_path, "rb") as fh:
+                data = fh.read()
+
+        yield avatar_pb2.VideoFrame(
+            meta=meta,
+            data=data,
+            width=0,
+            height=0,
+            format="mp4",
+        )
 
 
 class LipsyncService(avatar_pb2_grpc.LipsyncServiceServicer):
@@ -67,10 +111,20 @@ class LipsyncService(avatar_pb2_grpc.LipsyncServiceServicer):
             return
 
 
-def _build_backend(lipsync_cfg: dict) -> LipsyncBackend:
+def _build_backend(lipsync_cfg: dict, persona: dict) -> LipsyncBackend:
     backend = lipsync_cfg.get("backend", "mock")
     if backend == "wav2lip":
-        return Wav2LipBackend(model_path=lipsync_cfg.get("model", "wav2lip_gan.pth"))
+        repo_path = lipsync_cfg.get("repo_path")
+        checkpoint = lipsync_cfg.get("model", "wav2lip_gan.pth")
+        base_video = persona.get("base_video")
+        if not repo_path or not base_video:
+            raise RuntimeError("wav2lip requires repo_path and persona.base_video")
+        return Wav2LipBackend(
+            repo_path=repo_path,
+            checkpoint=checkpoint,
+            base_video=base_video,
+            fps=int(lipsync_cfg.get("fps", 30)),
+        )
     return MockLipsyncBackend()
 
 
@@ -99,7 +153,8 @@ def main() -> None:
 
     effective = _load_effective(args.stack, args.personas_dir, args.persona_id)
     lipsync_cfg = effective.get("stack", {}).get("lipsync", {})
-    backend = _build_backend(lipsync_cfg)
+    persona = effective.get("persona", {})
+    backend = _build_backend(lipsync_cfg, persona)
     asyncio.run(serve(args.bind, args.port, backend))
 
 

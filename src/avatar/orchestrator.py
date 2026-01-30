@@ -78,11 +78,22 @@ async def run_asr(asr_addr: str, wav_path: str, meta: avatar_pb2.Meta) -> str:
         return text
 
 
-async def run_llm(llm_addr: str, text: str, meta: avatar_pb2.Meta) -> str:
+async def run_llm(
+    llm_addr: str,
+    text: str,
+    meta: avatar_pb2.Meta,
+    persona_profile: str,
+    vision_summary: str = "",
+    context: str = "",
+) -> str:
     async with grpc.aio.insecure_channel(llm_addr) as channel:
         stub = avatar_pb2_grpc.LlmServiceStub(channel)
         request = avatar_pb2.LlmRequest(
-            meta=meta, text=text, context="", vision_summary="", persona_profile=""
+            meta=meta,
+            text=text,
+            context=context,
+            vision_summary=vision_summary,
+            persona_profile=persona_profile,
         )
         tokens = []
         async for event in stub.StreamLlm(request):
@@ -98,11 +109,17 @@ async def run_llm(llm_addr: str, text: str, meta: avatar_pb2.Meta) -> str:
 
 
 async def run_tts(
-    tts_addr: str, text: str, meta: avatar_pb2.Meta, out_wav: Optional[str]
-) -> bytes:
+    tts_addr: str,
+    text: str,
+    meta: avatar_pb2.Meta,
+    voice_sample_path: Optional[str],
+    out_wav: Optional[str],
+) -> tuple[bytes, int]:
     async with grpc.aio.insecure_channel(tts_addr) as channel:
         stub = avatar_pb2_grpc.TtsServiceStub(channel)
-        request = avatar_pb2.TtsRequest(meta=meta, text=text)
+        request = avatar_pb2.TtsRequest(
+            meta=meta, text=text, voice_sample_path=voice_sample_path or ""
+        )
         pcm = bytearray()
         sample_rate = 24000
         async for chunk in stub.StreamTts(request):
@@ -115,7 +132,7 @@ async def run_tts(
                 wf.setsampwidth(2)
                 wf.setframerate(sample_rate)
                 wf.writeframes(bytes(pcm))
-        return bytes(pcm)
+        return bytes(pcm), sample_rate
 
 
 async def run_lipsync(
@@ -141,7 +158,7 @@ async def run_lipsync(
 
         video_bytes = bytearray()
         async for frame in stub.StreamLipsync(stream_audio()):
-            if frame.format == "h264":
+            if frame.format in ("h264", "mp4"):
                 video_bytes.extend(frame.data)
         if out_video:
             with open(out_video, "wb") as fh:
@@ -169,11 +186,23 @@ async def main_async(args) -> None:
             raise RuntimeError("Provide --text or --wav")
         user_text = await run_asr(endpoints.asr, args.wav, meta)
 
-    reply = await run_llm(endpoints.llm, user_text, meta)
-    pcm = await run_tts(endpoints.tts, reply, meta, args.out_wav)
+    persona = effective.get("persona", {})
+    reply = await run_llm(
+        endpoints.llm,
+        user_text,
+        meta,
+        persona_profile=persona.get("system_prompt", ""),
+    )
+    pcm, sample_rate = await run_tts(
+        endpoints.tts,
+        reply,
+        meta,
+        voice_sample_path=persona.get("voice_sample"),
+        out_wav=args.out_wav,
+    )
 
     if args.out_video:
-        await run_lipsync(endpoints.lipsync, pcm, 24000, meta, args.out_video)
+        await run_lipsync(endpoints.lipsync, pcm, sample_rate, meta, args.out_video)
 
 
 def main() -> None:

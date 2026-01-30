@@ -17,6 +17,7 @@ rodando em Jetson Thor (JetPack 7.1), com 25-30 FPS e baixa latencia.
 2) Definir armazenamento para modelos e assets (/data).
 3) Definir layout de logs e metrics (/var/log/avatar).
 4) Ativar modo performance quando for rodar benchmarks.
+5) Instalar deps ML (requirements-ml.txt).
 
 Checklist:
 - GPU detectada e clocks estaveis.

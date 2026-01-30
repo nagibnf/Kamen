@@ -37,7 +37,14 @@ class MockAsrBackend(AsrBackend):
 
 
 class FasterWhisperBackend(AsrBackend):
-    def __init__(self, model_name: str, device: str, compute_type: str, language: str = "pt"):
+    def __init__(
+        self,
+        model_name: str,
+        device: str,
+        compute_type: str,
+        language: str = "pt",
+        vad_filter: bool = False,
+    ):
         try:
             from faster_whisper import WhisperModel  # type: ignore
         except Exception as exc:  # noqa: BLE001
@@ -46,6 +53,7 @@ class FasterWhisperBackend(AsrBackend):
             ) from exc
         self._model = WhisperModel(model_name, device=device, compute_type=compute_type)
         self._language = language
+        self._vad_filter = vad_filter
 
     def transcribe(self, pcm_s16le: bytes, sample_rate: int) -> List[Segment]:
         try:
@@ -57,7 +65,7 @@ class FasterWhisperBackend(AsrBackend):
             return []
         audio = np.frombuffer(pcm_s16le, dtype=np.int16).astype("float32") / 32768.0
         segments, _info = self._model.transcribe(
-            audio, language=self._language, vad_filter=False
+            audio, language=self._language, vad_filter=self._vad_filter
         )
         results: List[Segment] = []
         for seg in segments:
@@ -87,6 +95,10 @@ class AsrService(avatar_pb2_grpc.AsrServiceServicer):
             if sample_rate is None:
                 sample_rate = chunk.sample_rate or 16000
                 channels = chunk.channels or 1
+                if sample_rate != 16000:
+                    await context.abort(
+                        grpc.StatusCode.INVALID_ARGUMENT, "sample_rate must be 16000"
+                    )
             if channels != 1:
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "only mono supported")
             buffer.extend(chunk.pcm_s16le)
@@ -129,6 +141,7 @@ def _build_backend(asr_cfg: dict) -> AsrBackend:
             device=asr_cfg.get("device", "cuda"),
             compute_type=asr_cfg.get("compute_type", "int8_float16"),
             language=asr_cfg.get("language", "pt"),
+            vad_filter=asr_cfg.get("vad", "none") != "none",
         )
     return MockAsrBackend()
 

@@ -1,0 +1,10 @@
+numpy
+faster-whisper
+torch
+torchaudio
+transformers
+sentencepiece
+pillow
+soundfile
+TTS
+opencv-python
