@@ -1,1 +1,17 @@
-kamen
+# Kamen
+
+Live avatar local (ASR + LLM + TTS + lipsync + VLM) para Jetson Thor.
+Foco: baixa latencia, 25-30 FPS, PT-BR, open source.
+
+Documentos principais:
+- docs/live-avatar-jetson-thor.md
+- docs/implementation-plan.md
+- docs/services.md
+- docs/assets-prep.md
+- docs/test-plan.md
+- docs/runbook.md
+
+Configs e contratos:
+- proto/avatar.proto
+- configs/stack/default.yaml
+- configs/personas/ana.yaml

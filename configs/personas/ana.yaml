@@ -1,0 +1,14 @@
+persona:
+  id: ana
+  name: "Ana"
+  language: "pt-BR"
+  base_video: /data/personas/ana/video/base_idle.mp4
+  landmarks: /data/personas/ana/video/landmarks.json
+  roi_cache: /data/personas/ana/video/roi_cache.json
+  voice_sample: /data/personas/ana/voice/ref.wav
+  voice_embedding: /data/personas/ana/voice/embedding.bin
+  system_prompt: "Voce e a Ana, amigavel e objetiva."
+
+stack_override:
+  tts:
+    voice_profile_id: ana

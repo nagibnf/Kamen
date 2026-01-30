@@ -1,0 +1,30 @@
+stack:
+  asr:
+    backend: faster_whisper
+    model: distil-large-v3
+    device: cuda
+    vad: silero
+    sample_rate: 16000
+  llm:
+    backend: tensorrt_llm
+    model: qwen2.5-7b
+    quant: int4
+    max_tokens: 256
+  tts:
+    backend: qwen3_tts
+    model: qwen3-tts-0.6b
+    voice_cloning: true
+    sample_rate: 24000
+  vlm:
+    backend: qwen2_vl
+    model: qwen2-vl-2b
+    fps: 1
+  lipsync:
+    backend: wav2lip
+    model: wav2lip_gan.pth
+    fps: 30
+    resolution: 256
+  video:
+    output_format: h264
+    fps: 30
+    use_gstreamer: true
