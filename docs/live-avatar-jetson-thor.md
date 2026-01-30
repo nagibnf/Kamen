@@ -250,6 +250,135 @@ Endpoint: `rpc AnalyzeFrame(ImageFrame) returns (VisionSummary)`
 - `POST /config/reload` por servico
 - `GET /config/current` para debug
 
+## gRPC Proto (draft)
+Objetivo: definir mensagens minimas para streaming.
+
+```
+syntax = "proto3";
+package avatar;
+
+message Meta {
+  string persona_id = 1;
+  string session_id = 2;
+  string request_id = 3;
+  int64 ts_ms = 4;
+}
+
+message AudioChunk {
+  Meta meta = 1;
+  bytes pcm_s16le = 2;
+  int32 sample_rate = 3; // 16000
+  int32 channels = 4;    // 1
+}
+
+message AsrPartial {
+  Meta meta = 1;
+  string text = 2;
+  bool is_final = 3;
+  int64 start_ms = 4;
+  int64 end_ms = 5;
+  float confidence = 6;
+}
+
+message LlmRequest {
+  Meta meta = 1;
+  string text = 2;
+  string context = 3;
+  string vision_summary = 4;
+  string persona_profile = 5;
+}
+
+message LlmToken {
+  Meta meta = 1;
+  string token = 2;
+  bool is_final = 3;
+  int64 latency_ms = 4;
+}
+
+message TtsRequest {
+  Meta meta = 1;
+  string text = 2;
+  string voice_profile_id = 3;
+  string voice_sample_path = 4;
+  float speed = 5;
+  float temperature = 6;
+  float top_p = 7;
+}
+
+message VideoFrame {
+  Meta meta = 1;
+  bytes data = 2;      // raw RGB or H264 packet
+  int32 width = 3;
+  int32 height = 4;
+  string format = 5;   // "rgb24" or "h264"
+}
+
+message VisionSummary {
+  Meta meta = 1;
+  string text = 2;
+  repeated string tags = 3;
+}
+
+service AsrService {
+  rpc StreamAsr(stream AudioChunk) returns (stream AsrPartial);
+}
+service LlmService {
+  rpc StreamLlm(LlmRequest) returns (stream LlmToken);
+}
+service TtsService {
+  rpc StreamTts(TtsRequest) returns (stream AudioChunk);
+}
+service LipsyncService {
+  rpc StreamLipsync(stream AudioChunk) returns (stream VideoFrame);
+}
+service VlmService {
+  rpc AnalyzeFrame(VideoFrame) returns (VisionSummary);
+}
+```
+
+Notas:
+- Para lipsync, o `base_video_path` pode ser definido via config por persona.
+- Para video, enviar H264 direto reduz largura de banda.
+
+## Diagrama de deploy (logico)
+
+```
+[Browser UI /p/<persona>]
+   |  mic (WS/WebRTC)
+   v
+[Gateway/API] --grpc--> [ASR] --text--> [LLM] --tokens--> [TTS]
+   |                                   ^             |
+   |                                   |             v
+   |                           [VLM] <-+         [Lipsync]
+   |                                                |
+   +------------------- H264/WebRTC --------------- +
+```
+
+Componentes sugeridos:
+- **Gateway**: autentica, roteia por persona, agrega streams.
+- **ASR/LLM/TTS/VLM/Lipsync**: processos separados, GPU dedicada.
+- **Video Output**: pode ser integrado no Lipsync ou separado via GStreamer.
+
+## Fluxo de dados por persona (com cache)
+Objetivo: baixa latencia e isolamento de estado.
+
+1. **Session start**
+   - carregar config da persona
+   - carregar video base + landmarks + ROI cache
+   - carregar voice profile (embedding ou sample)
+2. **Streaming**
+   - mic -> ASR -> texto parcial/final
+   - texto + contexto + vision -> LLM (tokens)
+   - tokens -> TTS (audio stream)
+   - audio + base video -> lipsync -> video stream
+3. **Caches**
+   - **voice embedding** por persona (persistente)
+   - **LLM context** por session_id (memoria curta)
+   - **ROI cache** por video base (persistente)
+4. **Fallbacks**
+   - se VLM lento, reduzir fps ou desligar
+   - se TTS lento, trocar modelo via config
+
 ## Multi-persona (URLs diferentes)
 Objetivo: varias personas com URL/interface separada e recursos isolados.
 
